@@ -1,17 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
-# load the model 
-# model = RNN(emb_dim, hid_dim)
-# model.load_state_dict(torch.load(SAVE_PATH))
-
-
-# In[69]:
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -42,7 +28,7 @@ class RNN(nn.Module):
         lyrics = lyrics.permute(1,0,2)
         notes = notes.permute(1,0,2)
         output_L, (hidden_L, cell) = self.rnn_L(lyrics)
-#         print(notes, lyrics.shape)
+
         output_M, (hidden_M, cell) = self.rnn_M(notes)
         
         final_output_L = self.fc_L(hidden_L[-1])
@@ -65,9 +51,7 @@ print (model_LM)
 
 LR = 1e-4
 
-#create random dataset
-# train_data_combined = [[torch.randn(300, 1, 50),torch.randn(300, 1, 1),1],[torch.randn(300, 1, 50),torch.randn(300, 1, 1),0],[torch.randn(300, 1, 50),torch.randn(300, 1, 1),1]]
-# dev_data_combined = [[torch.randn(300, 1, 50),torch.randn(300, 1, 1),1],[torch.randn(300, 1, 50),torch.randn(300, 1, 1),0],[torch.randn(300, 1, 50),torch.randn(300, 1, 1),1]]
+
 
 def loss_fn(feature1, feature2, label):
     similarity = cos(feature1, feature2)
@@ -108,7 +92,7 @@ def evaluate(model_LM, dev_data_combined):
 
     epoch_acc = 0
     
-    #model_LM.test()
+   
     for batch_idx, batch in enumerate(dev_data_combined):
         lyrics = batch[0]#.lyrics
         notes = batch[1].float()
@@ -135,15 +119,7 @@ EPOCH = 10
 
 dataset = combined_data()
 
-# get first sample and unpack
-# first_data = dataset[0]
-# feature1, feature2, labels = first_data
-# print(feature1, feature2)
 
-# Load whole dataset with DataLoader
-# shuffle: shuffle data, good for training
-# num_workers: faster loading with multiple subprocesses
-# !!! IF YOU GET AN ERROR DURING LOADING, SET num_workers TO 0 !!!
 train_data_combined = DataLoader(dataset=dataset,
                           batch_size=4,
                           shuffle=True,
@@ -165,16 +141,7 @@ for epoch in range(1, EPOCH+1):
         end_time = time.time()
         epoch_time(start_time, end_time)
         print ("Epoch: {}, Acc: {}, Train loss: {}".format(epoch, dev_acc, train_loss))
-    
+        # save model
         SAVE_PATH = '%03d.pth' % epoch
         torch.save(model_LM.state_dict(), SAVE_PATH)
-# save model
-
-
-# In[ ]:
-
-
-# load the model 
-# model = RNN(emb_dim, hid_dim)
-# model.load_state_dict(torch.load(SAVE_PATH))
 
