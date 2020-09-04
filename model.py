@@ -5,6 +5,8 @@ import time
 import real_data_processing
 from real_data_processing import combined_data
 from torch.utils.data import Dataset, DataLoader
+import sklearn
+from sklearn import model_selection
 
 skip_header=True
 class RNN(nn.Module):
@@ -28,7 +30,6 @@ class RNN(nn.Module):
         lyrics = lyrics.permute(1,0,2)
         notes = notes.permute(1,0,2)
         output_L, (hidden_L, cell) = self.rnn_L(lyrics)
-
         output_M, (hidden_M, cell) = self.rnn_M(notes)
         
         final_output_L = self.fc_L(hidden_L[-1])
@@ -42,15 +43,10 @@ class RNN(nn.Module):
 model_LM = RNN(50, 256, 1, 256)
 
 
-def binary_accuracy(preds, y):
-    preds = torch.round(torch.sigmoid(preds))
-    correct = (preds==y).float()
-    acc = correct.sum() / len(correct) 
-    return acc
+
 print (model_LM)
 
 LR = 1e-4
-
 
 
 def loss_fn(feature1, feature2, label):
@@ -69,6 +65,8 @@ def train(model_LM, train_data_combined, epoch):
         lyrics = batch[0]
         notes = batch[1].float()
         label = batch[2]
+        
+        
         
         label = torch.autograd.variable(label).float()
         feature_L, feature_M = model_LM(lyrics, notes)
@@ -92,22 +90,22 @@ def evaluate(model_LM, dev_data_combined):
 
     epoch_acc = 0
     
-   
     for batch_idx, batch in enumerate(dev_data_combined):
-        lyrics = batch[0]#.lyrics
+        lyrics = batch[0]
         notes = batch[1].float()
-        label = batch[2]#.label
+        label = batch[2]
         
-        feature_L, feature_M = model_LM(lyrics, notes) #text_lengths).squeeze(1)
         
-        pred = (cos(feature_L, feature_M) > 0.5)
+        feature_L, feature_M = model_LM(lyrics, notes)
         
-        acc = sum(pred == label)*1.0/len(dev_data_combined)
+        pred = (cos(feature_L, feature_M) > 0.999).float()
+        
+        acc = sum(pred == label)*1.0/len(label)
         
         epoch_acc += acc.item()
-        return epoch_acc/len(dev_data_combined)
-
-
+    return epoch_acc/(batch_idx+1)
+    
+    
 def epoch_time(start_time, end_time):
         elapsed_time = end_time - start_time
         mins = int(elapsed_time / 60)
@@ -119,21 +117,24 @@ EPOCH = 10
 
 dataset = combined_data()
 
+test_dataset, train_dataset = sklearn.model_selection.train_test_split(dataset, test_size=225, train_size=2000)
+# print(len(test_dataset), len(train_dataset))
 
-train_data_combined = DataLoader(dataset=dataset,
+train_data_combined = DataLoader(dataset=train_dataset,
                           batch_size=4,
                           shuffle=True,
                           num_workers=0)
 
-dev_data_combined = DataLoader(dataset=dataset,
+dev_data_combined = DataLoader(dataset=test_dataset,
                           batch_size=4,
                           shuffle=True,
                           num_workers=0)
+
 
 optimizer = optim.Adam(model_LM.parameters(), lr=LR)
 cos = nn.CosineSimilarity(dim=1, eps=1e-6)
 for epoch in range(1, EPOCH+1):
-        start_time = time.time() 
+        start_time = time.time()
     
         train_loss = train(model_LM, train_data_combined, epoch)
         
@@ -141,7 +142,7 @@ for epoch in range(1, EPOCH+1):
         end_time = time.time()
         epoch_time(start_time, end_time)
         print ("Epoch: {}, Acc: {}, Train loss: {}".format(epoch, dev_acc, train_loss))
-        # save model
+    
         SAVE_PATH = '%03d.pth' % epoch
         torch.save(model_LM.state_dict(), SAVE_PATH)
 
